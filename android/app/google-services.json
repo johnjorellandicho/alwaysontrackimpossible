@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "304864330729",
+    "project_id": "impossiblealwaysontrack",
+    "storage_bucket": "impossiblealwaysontrack.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:304864330729:android:4dbfb3caba6be415564178",
+        "android_client_info": {
+          "package_name": "com.example.alwaysontrackimpossible"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCRyW46EgKVZ0TSY2lS_L4YVWUORE9PhM4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
