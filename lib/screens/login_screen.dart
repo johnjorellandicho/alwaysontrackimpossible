@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'register_screen.dart'; // make sure this exists
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter/services.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final LocalAuthentication _localAuth = LocalAuthentication();
 
   Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
@@ -30,22 +33,89 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text.trim(),
         );
 
+        // Only try biometrics if login is successful and user wants it
+        if (_rememberMe) {
+          await _setupBiometrics();
+        }
+
         // Go to dashboard if login successful
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        }
       } on FirebaseAuthException catch (e) {
         String message = "Login failed. Please try again.";
         if (e.code == 'user-not-found') {
           message = "No user found with this email.";
         } else if (e.code == 'wrong-password') {
           message = "Incorrect password.";
+        } else if (e.code == 'invalid-email') {
+          message = "Invalid email address.";
+        } else if (e.code == 'user-disabled') {
+          message = "This account has been disabled.";
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
       } finally {
-        setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
+    }
+  }
+
+  Future<void> _setupBiometrics() async {
+    try {
+      // Check if biometric authentication is available
+      final bool isAvailable = await _localAuth.canCheckBiometrics;
+      if (!isAvailable) {
+        print('Biometric authentication not available on this device');
+        return;
+      }
+
+      // Get available biometric types
+      final List<BiometricType> availableBiometrics = await _localAuth.getAvailableBiometrics();
+      if (availableBiometrics.isEmpty) {
+        print('No biometric authentication methods available');
+        return;
+      }
+
+      // Try to authenticate
+      final bool didAuthenticate = await _localAuth.authenticate(
+        localizedReason: 'Please authenticate to enable biometric login',
+        options: const AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
+        ),
+      );
+
+      if (didAuthenticate) {
+        print('Biometric authentication enabled successfully');
+        // Here you could save this preference to SharedPreferences or Firestore
+      }
+    } on PlatformException catch (e) {
+      // Handle biometric errors gracefully
+      print('Biometric authentication error: ${e.code} - ${e.message}');
+      
+      // Don't show error to user unless it's critical
+      if (e.code == 'no_fragment_activity') {
+        print('Biometric setup skipped due to activity configuration');
+      } else if (e.code == 'NotAvailable') {
+        print('Biometric authentication not available');
+      } else if (e.code == 'NotEnrolled') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No biometric authentication enrolled. Please set up fingerprint or face unlock in device settings.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Unexpected biometric error: $e');
     }
   }
 
@@ -105,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 8),
                         const Text(
                           "To keep connected with us please login with your personal info",
-                          textAlign: TextAlign.left,
+                          textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -183,8 +253,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 });
                               },
                             ),
-                            const Text("Remember Me"),
-                            const Spacer(),
+                            const Expanded(
+                              child: Text("Enable biometric login (optional)"),
+                            ),
                             TextButton(
                               onPressed: () {
                                 // TODO: Forgot password logic
@@ -225,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text("Don’t have an account? "),
+                            const Text("Don't have an account? "),
                             GestureDetector(
                               onTap: () {
                                 Navigator.push(

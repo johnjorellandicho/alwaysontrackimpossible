@@ -37,6 +37,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   firebase_auth: ^6.0.2
   cloud_firestore: ^6.0.1
+  firebase_core: ^4.1.0              # Required for Firebase initialization
+  local_auth: ^2.1.6                 # For fingerprint/face ID authentication
+  flutter_secure_storage: ^9.2.2 
 
 dev_dependencies:
   flutter_test:
