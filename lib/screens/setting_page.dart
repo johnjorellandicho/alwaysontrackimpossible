@@ -1050,3 +1050,4 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
     );
   }
 }
+
