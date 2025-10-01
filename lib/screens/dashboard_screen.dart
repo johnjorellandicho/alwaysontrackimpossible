@@ -54,7 +54,9 @@ class SensorDataPoint {
 }
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final Map<String, dynamic>? userData; // Added userData parameter
+  
+  const DashboardScreen({super.key, this.userData}); // Added userData to constructor
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -67,7 +69,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    // Use passed userData if available, otherwise load from Firebase
+    if (widget.userData != null) {
+      setState(() {
+        userData = widget.userData;
+        isLoading = false;
+      });
+    } else {
+      _loadUserData();
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -1006,7 +1016,7 @@ Future<void> _exportToExcel() async {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SettingsPage(userData: widget.userData,),
+            builder: (context) => SettingsPage(userData: widget.userData),
           ),
         );
         break;
@@ -1788,13 +1798,17 @@ class _FamilyDashboardState extends State<FamilyDashboard> {
         );
         break;
       case 1:
-        // Alert - Add navigation when ready
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AlertFeedPage(userData: widget.userData),
+          ),
+        );
         break;
       case 2:
         // Dashboard - Already here, do nothing
         break;
       case 3:
-        // Profile - Navigate to ProfilePage
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1803,7 +1817,12 @@ class _FamilyDashboardState extends State<FamilyDashboard> {
         );
         break;
       case 4:
-        // Settings - Add navigation when ready
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SettingsPage(userData: widget.userData),
+          ),
+        );
         break;
     }
   }
@@ -1953,9 +1972,23 @@ class _FamilyDashboardState extends State<FamilyDashboard> {
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            Expanded(child: _buildActionCard("Alert Settings", Icons.notifications, Colors.orange, () {})),
+                            Expanded(child: _buildActionCard("Alert Settings", Icons.notifications, Colors.orange, () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SettingsPage(userData: widget.userData),
+                                ),
+                              );
+                            })),
                             const SizedBox(width: 8),
-                            Expanded(child: _buildActionCard("Patient Profile", Icons.person, Colors.green, () {})),
+                            Expanded(child: _buildActionCard("Patient Profile", Icons.person, Colors.green, () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ProfilePage(userData: widget.userData),
+                                ),
+                              );
+                            })),
                           ],
                         ),
                       ],

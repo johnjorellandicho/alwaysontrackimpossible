@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'profile_page.dart';
@@ -54,29 +55,56 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   // Navigation handler for bottom navigation bar
-  void _onItemTapped(int index) {
+   void _onItemTapped(int index) {
+    if (index == _selectedIndex) return; // Don't navigate if already on this page
+    
     setState(() {
       _selectedIndex = index;
     });
 
     switch (index) {
       case 0:
-        Navigator.pushReplacementNamed(context, '/trackai');
+        // TrackAI
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TrackAIPage(userData: widget.userData),
+          ),
+        );
         break;
       case 1:
-        Navigator.pushReplacementNamed(context, '/alert');
+        // Alert Feed
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AlertFeedPage(userData: widget.userData),
+          ),
+        );
         break;
       case 2:
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        // Dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DashboardScreen(userData: widget.userData),
+          ),
+        );
         break;
       case 3:
-        Navigator.pushReplacementNamed(context, '/profile');
+        // Profile
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProfilePage(userData: widget.userData),
+          ),
+        );
         break;
       case 4:
-        // Already on Settings
+        // Already on Settings - do nothing
         break;
     }
   }
+
 
   // Navigation methods for different settings sections
   void _navigateToDataExport() {
