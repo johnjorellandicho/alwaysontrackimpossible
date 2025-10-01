@@ -23,12 +23,20 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
 
-  // Google Gemini API Configuration - FIXED ENDPOINT
-  static const String geminiApiKey = 'AIzaSyAhuA3yucpLFGs8zzl_OsXLnNKMrbpenwc';
-  static const String geminiApiUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent';
+  // OpenRouter API Configuration (Has FREE models!)
+  // Sign up at: https://openrouter.ai/keys
+  // You get FREE credits on signup!
+  static const String openRouterApiKey = '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';
+  static const String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
+  
+  // FREE MODELS YOU CAN USE:
+  // 'meta-llama/llama-3.2-3b-instruct:free'
+  // 'google/gemini-flash-1.5:free' 
+  // 'mistralai/mistral-7b-instruct:free'
+  // 'nousresearch/hermes-3-llama-3.1-405b:free'
+  static const String modelName = 'meta-llama/llama-3.2-3b-instruct:free';
 
   late AnimationController _typingAnimationController;
-  late Animation<double> _typingAnimation;
 
   @override
   void initState() {
@@ -36,12 +44,6 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
     _typingAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
-    );
-    _typingAnimation = Tween(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _typingAnimationController,
-        curve: Curves.easeInOut,
-      ),
     );
     _addWelcomeMessage();
   }
@@ -57,16 +59,16 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
   void _addWelcomeMessage() {
     final String firstName = widget.userData['firstName'] ?? 'User';
     final welcomeMessage = ChatMessage(
-      text: "Hello $firstName!\n\nI'm TrackAI, your personal health assistant powered by Google Gemini AI. "
+      text: "Hello $firstName! 👋\n\nI'm TrackAI, your personal health assistant. "
           "I can help you understand your health data, answer questions about your vital signs, "
-          "and provide health insights based on your sensor readings.\n\n"
-          "Your current vitals:\n"
+          "and even chat about general topics!\n\n"
+          "📊 Your current vitals:\n"
           "🌡️ Temperature: ${widget.currentVitals?['temperature']?.toStringAsFixed(1) ?? 'N/A'}°C "
           "(${widget.currentVitals?['temperatureStatus'] ?? 'Unknown'})\n"
           "❤️ Heart Rate: ${widget.currentVitals?['heartRate']?.toString() ?? 'N/A'} BPM\n"
           "🫁 SpO2: ${widget.currentVitals?['spO2']?.toString() ?? 'N/A'}%\n"
           "💧 Humidity: ${widget.currentVitals?['humidity']?.toStringAsFixed(1) ?? 'N/A'}%\n\n"
-          "What would you like to know about your health today?",
+          "What would you like to know?",
       isUser: false,
       timestamp: DateTime.now(),
     );
@@ -95,7 +97,7 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
     _typingAnimationController.repeat();
 
     try {
-      final aiResponse = await _getGeminiResponse(userMessage);
+      final aiResponse = await _getAIResponse(userMessage);
       setState(() {
         _messages.add(ChatMessage(
           text: aiResponse,
@@ -107,21 +109,12 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
       _typingAnimationController.stop();
       _scrollToBottom();
     } catch (e) {
-      print('API Error Details: $e');
+      print('API Error: $e');
       setState(() {
-        _messages.add(ChatMessage(
-          text: "I'm having trouble connecting to my AI service right now. "
-              "Error: $e\n\n"
-              "Let me provide a health-focused response instead based on your vitals.",
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
         _isLoading = false;
       });
       _typingAnimationController.stop();
       
-      // Add a follow-up response with health insights
-      await Future.delayed(const Duration(seconds: 1));
       final fallbackResponse = _getEnhancedFallbackResponse(userMessage);
       setState(() {
         _messages.add(ChatMessage(
@@ -134,253 +127,258 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
     }
   }
 
-  Future<String> _getGeminiResponse(String userMessage) async {
+  Future<String> _getAIResponse(String userMessage) async {
+    // If API key is not set, use intelligent fallback
+    if (openRouterApiKey == 'YOUR_OPENROUTER_API_KEY') {
+      return _getEnhancedFallbackResponse(userMessage);
+    }
+
     try {
-      // Build health-focused prompt - ENHANCED VERSION
-      final healthPrompt = _buildHealthPrompt(userMessage);
+      final systemPrompt = _buildSystemPrompt();
       
       final requestBody = {
-        "contents": [
+        "model": modelName,
+        "messages": [
           {
-            "parts": [
-              {
-                "text": healthPrompt
-              }
-            ]
+            "role": "system",
+            "content": systemPrompt
+          },
+          {
+            "role": "user",
+            "content": userMessage
           }
         ],
-        "generationConfig": {
-          "temperature": 0.7,
-          "topK": 40,
-          "topP": 0.95,
-          "maxOutputTokens": 512,
-          "stopSequences": []
-        },
-        "safetySettings": [
-          {
-            "category": "HARM_CATEGORY_HARASSMENT",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            "category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
+        "temperature": 0.7,
+        "max_tokens": 300,
       };
 
-      print('Sending request to: $geminiApiUrl?key=$geminiApiKey');
-      print('Request body: ${json.encode(requestBody)}');
+      print('🚀 Sending request to OpenRouter...');
+      print('📍 Model: $modelName');
       
       final response = await http.post(
-        Uri.parse('$geminiApiUrl?key=$geminiApiKey'),
+        Uri.parse(apiUrl),
         headers: {
+          'Authorization': 'Bearer $openRouterApiKey',
           'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://trackai.health',
+          'X-Title': 'TrackAI Health Monitor',
         },
         body: json.encode(requestBody),
       ).timeout(const Duration(seconds: 30));
 
-      print('Response status: ${response.statusCode}');
-      print('Response body: ${response.body}');
+      print('📊 Response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         
-        if (data['candidates'] != null && data['candidates'].isNotEmpty) {
-          final candidate = data['candidates'][0];
+        if (data['choices'] != null && data['choices'].isNotEmpty) {
+          final message = data['choices'][0]['message'];
+          String aiResponse = message['content']?.toString().trim() ?? '';
           
-          // Check for safety blocking
-          if (candidate['finishReason'] == 'SAFETY') {
-            return "I want to provide helpful health information, but I need to be extra careful with medical advice. Let me give you general guidance about your current vitals instead.\n\n${_getVitalsAnalysis()}";
-          }
+          print('✅ AI Response received');
           
-          if (candidate['content']?['parts'] != null && candidate['content']['parts'].isNotEmpty) {
-            String aiResponse = candidate['content']['parts'][0]['text']?.toString().trim() ?? '';
-            
-            if (aiResponse.isNotEmpty) {
-              return _cleanupResponse(aiResponse);
-            }
+          if (aiResponse.isNotEmpty) {
+            return _cleanupResponse(aiResponse);
           }
         }
         
-        return "I received an empty response from the AI service. Let me provide you with health insights based on your current vitals instead.\n\n${_getVitalsAnalysis()}";
+        return _getEnhancedFallbackResponse(userMessage);
         
-      } else if (response.statusCode == 400) {
-        final errorData = json.decode(response.body);
-        throw Exception('Bad Request: ${errorData['error']?['message'] ?? 'Invalid request format'}');
-      } else if (response.statusCode == 403) {
-        throw Exception('API Key Error: Please check your API key permissions and billing status');
+      } else if (response.statusCode == 401) {
+        return "🔑 API key invalid. Please check your OpenRouter API key at https://openrouter.ai/keys\n\nUsing offline mode:\n\n${_getEnhancedFallbackResponse(userMessage)}";
+        
+      } else if (response.statusCode == 402) {
+        return "💳 Out of credits. OpenRouter requires credits for this model. Try a different free model or using offline mode:\n\n${_getEnhancedFallbackResponse(userMessage)}";
+        
       } else if (response.statusCode == 429) {
-        return "I'm currently experiencing high demand. Please try again in a moment. Your current vitals look good while we wait!";
+        return "⏳ Rate limited. Please wait a moment before sending another message.\n\nMeanwhile:\n\n${_getEnhancedFallbackResponse(userMessage)}";
+        
       } else {
-        throw Exception('HTTP ${response.statusCode}: ${response.body}');
+        final errorData = json.decode(response.body);
+        print('💥 Error: ${errorData}');
+        throw Exception('HTTP ${response.statusCode}: ${errorData}');
       }
     } catch (e) {
-      print('Gemini API error details: $e');
-      rethrow;
+      print('💥 AI API error: $e');
+      return _getEnhancedFallbackResponse(userMessage);
     }
   }
 
-  String _buildHealthPrompt(String userMessage) {
+  String _buildSystemPrompt() {
     final firstName = widget.userData['firstName'] ?? 'User';
     final vitals = widget.currentVitals ?? {};
     
-    // ENHANCED PROMPT - More specific and focused
-    return """You are TrackAI, a specialized health monitoring assistant helping ${firstName} understand their vital signs and health data.
+    return """You are TrackAI, a friendly AI health assistant for ${firstName}.
 
-CRITICAL: You must respond as TrackAI in a conversational, personalized manner. Do NOT give generic responses.
-
-CONTEXT & ROLE:
-- You are specifically designed for health monitoring and vital sign interpretation
-- You have access to ${firstName}'s real-time health data from IoT sensors
-- Your responses should be specific to their current readings and question
-- Always be supportive but emphasize medical professional consultation for concerns
-
-CURRENT LIVE VITAL READINGS:
-Temperature: ${vitals['temperature']?.toStringAsFixed(1) ?? 'No reading'}°C (${vitals['temperatureStatus'] ?? 'Status unknown'})
-Heart Rate: ${vitals['heartRate']?.toString() ?? 'No reading'} BPM
-Blood Oxygen (SpO2): ${vitals['spO2']?.toString() ?? 'No reading'}%
-Environmental Humidity: ${vitals['humidity']?.toStringAsFixed(1) ?? 'No reading'}%
+CURRENT VITALS:
+- Temperature: ${vitals['temperature']?.toStringAsFixed(1) ?? 'N/A'}°C (${vitals['temperatureStatus'] ?? 'Unknown'})
+- Heart Rate: ${vitals['heartRate']?.toString() ?? 'N/A'} BPM
+- SpO2: ${vitals['spO2']?.toString() ?? 'N/A'}%
+- Humidity: ${vitals['humidity']?.toStringAsFixed(1) ?? 'N/A'}%
 
 REFERENCE RANGES:
 - Normal temperature: 36.1-37.2°C
 - Normal resting heart rate: 60-100 BPM
 - Normal SpO2: 95-100%
-- Comfortable humidity: 30-60%
 
-USER'S SPECIFIC QUESTION: "${userMessage}"
+INSTRUCTIONS:
+1. You can answer BOTH health questions and general questions
+2. For health questions, reference their specific vital readings when relevant
+3. Keep responses under 200 words
+4. Be conversational and friendly
+5. For medical concerns, always recommend consulting healthcare professionals
+6. You can discuss any topic, not just health
 
-RESPONSE REQUIREMENTS:
-1. Address ${firstName} personally
-2. Reference their specific vital readings when relevant
-3. Provide actionable insights about their current health status
-4. Keep response under 300 words
-5. Be conversational, not clinical
-6. Always recommend professional medical care for serious concerns
+Respond naturally and helpfully to their question.""";
+  }
 
-Respond directly to their question with specific insights about their health data:""";
+  String _cleanupResponse(String response) {
+    response = response.trim();
+    
+    if (response.length > 800) {
+      response = response.substring(0, 800) + '...';
+    }
+    
+    return response;
   }
 
   String _getVitalsAnalysis() {
     final vitals = widget.currentVitals ?? {};
     final firstName = widget.userData['firstName'] ?? 'User';
     
-    String analysis = "Here's what your current vitals tell me, $firstName:\n\n";
+    String analysis = "📊 Here's your current health status, $firstName:\n\n";
     
-    // Temperature analysis
     final temp = vitals['temperature'];
     if (temp != null) {
       if (temp >= 38.0) {
-        analysis += "🌡️ Your temperature (${temp.toStringAsFixed(1)}°C) suggests you might have a fever. Stay hydrated and consider contacting a healthcare provider.\n\n";
+        analysis += "🌡️ Temperature: ${temp.toStringAsFixed(1)}°C - This suggests a fever. Stay hydrated and consider contacting a healthcare provider.\n\n";
       } else if (temp >= 37.3) {
-        analysis += "🌡️ Your temperature (${temp.toStringAsFixed(1)}°C) is slightly elevated. Monitor how you're feeling.\n\n";
+        analysis += "🌡️ Temperature: ${temp.toStringAsFixed(1)}°C - Slightly elevated. Monitor how you're feeling.\n\n";
       } else if (temp >= 36.1) {
-        analysis += "🌡️ Your temperature (${temp.toStringAsFixed(1)}°C) is perfectly normal.\n\n";
+        analysis += "🌡️ Temperature: ${temp.toStringAsFixed(1)}°C - Normal range. ✓\n\n";
       }
     }
     
-    // Heart rate analysis
     final hr = vitals['heartRate'];
     if (hr != null) {
       if (hr < 60) {
-        analysis += "❤️ Your heart rate ($hr BPM) is below typical range. This could be normal if you're athletic, but worth monitoring.\n\n";
+        analysis += "❤️ Heart Rate: $hr BPM - Below typical range. Normal if you're athletic.\n\n";
       } else if (hr > 100) {
-        analysis += "❤️ Your heart rate ($hr BPM) is elevated. This could be from activity, stress, or caffeine.\n\n";
+        analysis += "❤️ Heart Rate: $hr BPM - Elevated. Could be from activity, stress, or caffeine.\n\n";
       } else {
-        analysis += "❤️ Your heart rate ($hr BPM) is in the healthy range.\n\n";
+        analysis += "❤️ Heart Rate: $hr BPM - Healthy range. ✓\n\n";
       }
     }
     
-    // SpO2 analysis
     final spo2 = vitals['spO2'];
     if (spo2 != null) {
       if (spo2 >= 95) {
-        analysis += "🫁 Your oxygen levels ($spo2%) are excellent.\n\n";
+        analysis += "🫁 Oxygen: $spo2% - Excellent levels. ✓\n\n";
       } else {
-        analysis += "🫁 Your oxygen levels ($spo2%) are below optimal. Ensure good ventilation and consider consulting a healthcare provider if you feel unwell.\n\n";
+        analysis += "🫁 Oxygen: $spo2% - Below optimal. Ensure good ventilation.\n\n";
       }
     }
     
-    return analysis + "Remember, I'm here to help interpret your readings, but always consult healthcare professionals for medical decisions.";
+    return analysis + "💡 I'm here to help interpret your readings and answer any questions!";
   }
 
-  String _cleanupResponse(String response) {
-    // Remove common AI artifacts and clean up the response
-    response = response.replaceAll(RegExp(r'^(Response:|Answer:|TrackAI:)\s*'), '');
-    response = response.replaceAll(RegExp(r'\*\*(.*?)\*\*'), r'$1'); // Remove bold markdown
-    response = response.replaceAll(RegExp(r'\n\n+'), '\n\n');
-    response = response.trim();
-    
-    // Ensure response isn't too long
-    if (response.length > 800) {
-      response = response.substring(0, 800) + '...\n\nFor more detailed information, feel free to ask specific questions!';
-    }
-    
-    return response;
-  }
-
-  // Enhanced fallback response for when API is unavailable
   String _getEnhancedFallbackResponse(String userMessage) {
     final userMessageLower = userMessage.toLowerCase();
     final vitals = widget.currentVitals ?? {};
     final firstName = widget.userData['firstName'] ?? 'there';
 
-    // Emergency or critical questions
-    if (userMessageLower.contains('emergency') || userMessageLower.contains('critical') || 
-        userMessageLower.contains('chest pain') || userMessageLower.contains('can\'t breathe')) {
-      return "🚨 $firstName, if you're experiencing a medical emergency, please call emergency services immediately (911, 999, or your local emergency number).\n\nFor chest pain, difficulty breathing, or any symptoms that worry you, seek immediate medical attention. I'm a health monitoring assistant, not a replacement for emergency medical care.\n\nYour current vitals: Temperature ${vitals['temperature']?.toStringAsFixed(1) ?? 'N/A'}°C, Heart Rate ${vitals['heartRate'] ?? 'N/A'} BPM, SpO2 ${vitals['spO2'] ?? 'N/A'}%.";
+    // Emergency
+    if (userMessageLower.contains('emergency') || userMessageLower.contains('chest pain') || 
+        userMessageLower.contains('can\'t breathe')) {
+      return "🚨 $firstName, if you're experiencing a medical emergency, call emergency services immediately (911)!\n\nYour vitals: Temp ${vitals['temperature']?.toStringAsFixed(1) ?? 'N/A'}°C, HR ${vitals['heartRate'] ?? 'N/A'} BPM, SpO2 ${vitals['spO2'] ?? 'N/A'}%.";
     }
 
-    // Temperature questions
+    // Temperature
     if (userMessageLower.contains('temperature') || userMessageLower.contains('fever')) {
       final temp = vitals['temperature']?.toStringAsFixed(1) ?? 'N/A';
       final status = vitals['temperatureStatus'] ?? 'Unknown';
       
-      String interpretation = "";
+      String advice = "";
       if (temp != 'N/A') {
         final tempValue = double.tryParse(temp) ?? 0;
         if (tempValue >= 38.0) {
-          interpretation = "$firstName, this may indicate a fever. Consider contacting a healthcare provider if you feel unwell or if it persists.";
+          advice = "This suggests a fever, $firstName. Stay hydrated, rest, and contact a healthcare provider if it persists.";
         } else if (tempValue >= 37.3) {
-          interpretation = "This is slightly elevated, $firstName. Monitor how you're feeling and stay hydrated.";
+          advice = "Slightly elevated, $firstName. Monitor and stay hydrated.";
         } else if (tempValue >= 36.1) {
-          interpretation = "Great news, $firstName! This is within the normal range.";
-        } else if (tempValue > 0) {
-          interpretation = "This seems lower than typical, $firstName. Make sure you're staying warm enough.";
+          advice = "Perfect! This is in the normal range.";
         }
       }
       
-      return "🌡️ $firstName, your current temperature is $temp°C, classified as $status. $interpretation\n\nNormal body temperature ranges from 36.1-37.2°C (97-99°F). If you have concerns about fever or feel unwell, it's best to consult with a healthcare provider.";
+      return "🌡️ Your temperature is $temp°C ($status).\n\n$advice\n\nNormal range: 36.1-37.2°C";
     }
 
-    // Heart rate questions
-    if (userMessageLower.contains('heart') || userMessageLower.contains('pulse') || userMessageLower.contains('bpm')) {
+    // Heart rate
+    if (userMessageLower.contains('heart') || userMessageLower.contains('pulse')) {
       final hr = vitals['heartRate']?.toString() ?? 'N/A';
       
-      String interpretation = "";
+      String advice = "";
       if (hr != 'N/A') {
         final heartRate = int.tryParse(hr) ?? 0;
         if (heartRate < 60) {
-          interpretation = "$firstName, this is below the typical resting range (60-100 BPM). If you're an athlete, this could be normal, but consider consulting a healthcare provider if you have concerns.";
+          advice = "Below typical range. Normal if you're athletic, but monitor how you feel.";
         } else if (heartRate > 100) {
-          interpretation = "$firstName, this is above the typical resting range. This could be due to activity, stress, caffeine, or other factors. Try to relax and monitor it.";
+          advice = "Elevated. Could be from activity, stress, or caffeine. Try to relax.";
         } else {
-          interpretation = "Excellent, $firstName! This is within the normal resting heart rate range.";
+          advice = "Excellent! Within healthy resting range.";
         }
       }
       
-      return "❤️ $firstName, your current heart rate is $hr BPM. $interpretation\n\nHeart rate naturally varies with activity, emotions, caffeine, and other factors. If you're concerned about unusual patterns, consider discussing with a healthcare provider.";
+      return "❤️ Your heart rate is $hr BPM.\n\n$advice\n\nNormal resting: 60-100 BPM";
     }
 
-    // Default response with actual vitals analysis
-    return _getVitalsAnalysis();
+    // Oxygen
+    if (userMessageLower.contains('oxygen') || userMessageLower.contains('spo2')) {
+      final spo2 = vitals['spO2']?.toString() ?? 'N/A';
+      
+      String advice = "";
+      if (spo2 != 'N/A') {
+        final oxygenLevel = int.tryParse(spo2) ?? 0;
+        if (oxygenLevel >= 95) {
+          advice = "Excellent! Your blood is carrying oxygen efficiently.";
+        } else if (oxygenLevel >= 90) {
+          advice = "Slightly lower than ideal. Ensure good ventilation and take deep breaths.";
+        } else {
+          advice = "⚠️ Low reading. If accurate, consider seeking medical attention.";
+        }
+      }
+      
+      return "🫁 Your SpO2 is $spo2%.\n\n$advice\n\nNormal range: 95-100%";
+    }
+
+    // General health
+    if (userMessageLower.contains('how am i') || userMessageLower.contains('my health')) {
+      return _getVitalsAnalysis();
+    }
+
+    // Greetings
+    if (userMessageLower.contains('hello') || userMessageLower.contains('hi')) {
+      return "Hello $firstName! 👋\n\nI'm TrackAI, monitoring your health in real-time. Your vitals look good!\n\nAsk me:\n• About your temperature, heart rate, or oxygen\n• Health tips\n• General questions\n\nWhat can I help with?";
+    }
+
+    // Jokes
+    if (userMessageLower.contains('joke')) {
+      return "😄 Here's one for you, $firstName:\n\nWhy did the doctor carry a red pen? In case they needed to draw blood!\n\n😂 Your vitals are looking good today, by the way!";
+    }
+
+    // Time
+    if (userMessageLower.contains('time') || userMessageLower.contains('date')) {
+      final now = DateTime.now();
+      return "⏰ It's ${DateFormat('EEEE, MMMM d, y - h:mm a').format(now)}\n\n${_getVitalsAnalysis()}";
+    }
+
+    // Weather
+    if (userMessageLower.contains('weather')) {
+      return "🌤️ I don't have weather data, but your environmental humidity is ${vitals['humidity']?.toStringAsFixed(1) ?? 'N/A'}%!\n\nFor weather, check a weather app. Need anything else?";
+    }
+
+    // Default
+    return "Hi $firstName! I'm TrackAI, your health assistant. 🩺\n\n${_getVitalsAnalysis()}\n\nI can also answer general questions! What would you like to know?";
   }
 
   Future<void> _scrollToBottom() async {
@@ -398,13 +396,13 @@ Respond directly to their question with specific insights about their health dat
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.smart_toy, color: Colors.white),
-            SizedBox(width: 8),
+            const Icon(Icons.smart_toy, color: Colors.white),
+            const SizedBox(width: 8),
             Text(
-              'TrackAI (Gemini)',
-              style: TextStyle(
+              'TrackAI ${openRouterApiKey != 'YOUR_OPENROUTER_API_KEY' ? '(AI)' : '(Offline)'}',
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
@@ -429,7 +427,6 @@ Respond directly to their question with specific insights about their health dat
       ),
       body: Column(
         children: [
-          // Quick vitals display
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -467,7 +464,6 @@ Respond directly to their question with specific insights about their health dat
               ],
             ),
           ),
-          // Chat messages
           Expanded(
             child: Container(
               color: Colors.grey[100],
@@ -484,7 +480,6 @@ Respond directly to their question with specific insights about their health dat
               ),
             ),
           ),
-          // Message input
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -504,7 +499,7 @@ Respond directly to their question with specific insights about their health dat
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
-                      hintText: 'Ask me about your health...',
+                      hintText: 'Ask me anything...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25),
                         borderSide: BorderSide.none,
@@ -515,7 +510,7 @@ Respond directly to their question with specific insights about their health dat
                         horizontal: 20,
                         vertical: 12,
                       ),
-                      prefixIcon: const Icon(Icons.health_and_safety, color: Colors.grey),
+                      prefixIcon: const Icon(Icons.chat_bubble_outline, color: Colors.grey),
                     ),
                     maxLines: null,
                     textCapitalization: TextCapitalization.sentences,
