@@ -26,7 +26,7 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
   // OpenRouter API Configuration (Has FREE models!)
   // Sign up at: https://openrouter.ai/keys
   // You get FREE credits on signup!
-  static const String openRouterApiKey = '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';
+  static const String openRouterApiKey = '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';
   static const String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
   
   // FREE MODELS YOU CAN USE:
