@@ -7,6 +7,10 @@ import 'track_ai_page.dart';
 import 'dashboard_screen.dart';
 
 class SettingsPage extends StatefulWidget {
+  final Map<String, dynamic> userData; // Add this parameter
+  
+  const SettingsPage({Key? key, required this.userData}) : super(key: key);
+  
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }

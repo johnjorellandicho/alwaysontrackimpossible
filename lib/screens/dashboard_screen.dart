@@ -1006,7 +1006,7 @@ Future<void> _exportToExcel() async {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SettingsPage(),
+            builder: (context) => SettingsPage(userData: widget.userData,),
           ),
         );
         break;
