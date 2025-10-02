@@ -803,120 +803,81 @@ Future<void> _exportToExcel() async {
         ),
         const SizedBox(height: 10),
         
-        // Analytics Summary Cards
+        // Chart Type Selector
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildChartTypeButton("Temperature", Icons.thermostat, Colors.red),
+                _buildChartTypeButton("Heart Rate", Icons.favorite, Colors.pink),
+                _buildChartTypeButton("SpO2", Icons.air, Colors.blue),
+                _buildChartTypeButton("Humidity", Icons.water_drop, Colors.cyan),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 15),
+        
+        // Main Chart Display
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            height: 250,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              border: Border.all(color: Colors.grey.shade300),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                ),
+              ],
             ),
-            child: Column(
+            child: filteredAnalyticsData.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No data available for selected time range',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  )
+                : CustomPaint(
+                    painter: LineChartPainter(
+                      dataPoints: filteredAnalyticsData,
+                      chartType: selectedChart,
+                    ),
+                    size: const Size(double.infinity, 250),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 15),
+        
+        // Summary Statistics Below Chart
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.analytics, color: Colors.blue[700], size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      "${_getTimeRangeDisplayName(selectedTimeRange)} Summary",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                
-                // Summary Statistics
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildAnalyticsStatCard(
-                        "Avg Temp",
-                        "${summary['avgTemp'].toStringAsFixed(1)}°C",
-                        Icons.thermostat,
-                        Colors.red,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildAnalyticsStatCard(
-                        "Avg HR",
-                        "${summary['avgHeartRate']} BPM",
-                        Icons.favorite,
-                        Colors.pink,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildAnalyticsStatCard(
-                        "Avg SpO2",
-                        "${summary['avgSpO2']}%",
-                        Icons.air,
-                        Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildAnalyticsStatCard(
-                        "Readings",
-                        "${summary['totalReadings']}",
-                        Icons.data_usage,
-                        Colors.green,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                
-                // Temperature Range
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Column(
-                        children: [
-                          const Text("Min Temp", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text(
-                            "${summary['minTemp'].toStringAsFixed(1)}°C",
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        children: [
-                          const Text("Max Temp", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text(
-                            "${summary['maxTemp'].toStringAsFixed(1)}°C",
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        children: [
-                          const Text("Avg Humidity", style: TextStyle(fontSize: 10, color: Colors.grey)),
-                          Text(
-                            "${summary['avgHumidity'].toStringAsFixed(1)}%",
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
+                _buildQuickStat("Readings", "${summary['totalReadings']}", Icons.data_usage),
+                _buildQuickStat("Avg", _getAverageForChart(summary), Icons.analytics),
+                _buildQuickStat("Min", _getMinForChart(summary), Icons.arrow_downward),
+                _buildQuickStat("Max", _getMaxForChart(summary), Icons.arrow_upward),
               ],
             ),
           ),
@@ -985,36 +946,121 @@ Future<void> _exportToExcel() async {
     );
   }
 
-  Widget _buildAnalyticsStatCard(String label, String value, IconData icon, Color color) {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+  Widget _buildChartTypeButton(String label, IconData icon, Color color) {
+    final bool isSelected = selectedChart == label;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedChart = label;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? color : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? color : Colors.grey),
+            const SizedBox(height: 2),
+            Text(
+              label.split(' ').first,
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? color : Colors.grey,
               ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildQuickStat(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: Colors.blue.shade700),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getAverageForChart(Map<String, dynamic> summary) {
+    switch (selectedChart) {
+      case "Temperature":
+        return "${summary['avgTemp'].toStringAsFixed(1)}°C";
+      case "Heart Rate":
+        return "${summary['avgHeartRate']} BPM";
+      case "SpO2":
+        return "${summary['avgSpO2']}%";
+      case "Humidity":
+        return "${summary['avgHumidity'].toStringAsFixed(1)}%";
+      default:
+        return "N/A";
+    }
+  }
+
+  String _getMinForChart(Map<String, dynamic> summary) {
+    if (filteredAnalyticsData.isEmpty) return "N/A";
+    
+    switch (selectedChart) {
+      case "Temperature":
+        final min = filteredAnalyticsData.map((e) => e.temperature).reduce((a, b) => a < b ? a : b);
+        return "${min.toStringAsFixed(1)}°C";
+      case "Heart Rate":
+        final min = filteredAnalyticsData.map((e) => e.heartRate).reduce((a, b) => a < b ? a : b);
+        return "$min BPM";
+      case "SpO2":
+        final min = filteredAnalyticsData.map((e) => e.spO2).reduce((a, b) => a < b ? a : b);
+        return "$min%";
+      case "Humidity":
+        final min = filteredAnalyticsData.map((e) => e.humidity).reduce((a, b) => a < b ? a : b);
+        return "${min.toStringAsFixed(1)}%";
+      default:
+        return "N/A";
+    }
+  }
+
+  String _getMaxForChart(Map<String, dynamic> summary) {
+    if (filteredAnalyticsData.isEmpty) return "N/A";
+    
+    switch (selectedChart) {
+      case "Temperature":
+        final max = filteredAnalyticsData.map((e) => e.temperature).reduce((a, b) => a > b ? a : b);
+        return "${max.toStringAsFixed(1)}°C";
+      case "Heart Rate":
+        final max = filteredAnalyticsData.map((e) => e.heartRate).reduce((a, b) => a > b ? a : b);
+        return "$max BPM";
+      case "SpO2":
+        final max = filteredAnalyticsData.map((e) => e.spO2).reduce((a, b) => a > b ? a : b);
+        return "$max%";
+      case "Humidity":
+        final max = filteredAnalyticsData.map((e) => e.humidity).reduce((a, b) => a > b ? a : b);
+        return "${max.toStringAsFixed(1)}%";
+      default:
+        return "N/A";
+    }
   }
 
   Widget _buildHealthStatusIndicator(String label, String status, Color color) {
