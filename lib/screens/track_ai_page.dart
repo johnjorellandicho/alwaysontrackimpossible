@@ -26,7 +26,7 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
   // OpenRouter API Configuration (Has FREE models!)
   // Sign up at: https://openrouter.ai/keys
   // You get FREE credits on signup!
-  static const String openRouterApiKey = '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';
+  static const String openRouterApiKey = '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';
   static const String apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
   
   // FREE MODELS YOU CAN USE:
@@ -129,7 +129,7 @@ class _TrackAIPageState extends State<TrackAIPage> with TickerProviderStateMixin
 
   Future<String> _getAIResponse(String userMessage) async {
     // If API key is not set, use intelligent fallback
-    if (openRouterApiKey == 'YOUR_OPENROUTER_API_KEY') {
+    if (openRouterApiKey == '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') {
       return _getEnhancedFallbackResponse(userMessage);
     }
 
@@ -401,7 +401,7 @@ Respond naturally and helpfully to their question.""";
             const Icon(Icons.smart_toy, color: Colors.white),
             const SizedBox(width: 8),
             Text(
-              'TrackAI ${openRouterApiKey != 'YOUR_OPENROUTER_API_KEY' ? '(AI)' : '(Offline)'}',
+              'TrackAI ${openRouterApiKey != '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' ? '(AI)' : '(Offline)'}',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
