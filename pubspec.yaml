@@ -45,7 +45,7 @@ dependencies:
   fl_chart: ^0.64.0
   path_provider: ^2.1.1
   share_plus: ^7.2.1
-
+  universal_html: ^2.2.4
 
 dev_dependencies:
   flutter_test:
@@ -57,7 +57,15 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
 
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/alwaysontracklogo.png"  # Your logo path (1024x1024 recommended)
+  web:
+    generate: true
+    image_path: "assets/alwaysontracklogo.png"
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
