@@ -7,8 +7,11 @@ import 'screens/register_screen.dart';
 import 'screens/email_verification_screen.dart'; // this imports EmailVerificationScreen + UserRole
 import 'screens/dashboard_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'services/language_service.dart';
 import 'firebase_options.dart';
 import 'models/user_role.dart';
+import 'screens/setting_page.dart';
 
 
 void main() async {
@@ -17,7 +20,16 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  runApp(const MyApp());
+  // Initialize language service
+  final languageService = LanguageService();
+  await languageService.loadLanguage();
+
+  runApp(
+    ChangeNotifierProvider.value(
+      value: languageService,
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

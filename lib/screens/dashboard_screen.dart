@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'package:provider/provider.dart';
+import '../services/language_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1161,6 +1163,9 @@ Future<void> _exportToExcel() async {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    final translations = AppTranslations(languageService);
+
     final String firstName = widget.userData['firstName'] ?? 'Patient';
     String currentDate = DateFormat('MMMM d, y').format(DateTime.now());
 
@@ -1223,7 +1228,7 @@ Future<void> _exportToExcel() async {
                     right: 90,
                     top: 35,
                     child: Text(
-                      "Hello, $firstName!",
+                      "${translations.hello},$firstName!",
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 18,

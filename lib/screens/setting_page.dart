@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
+import '../services/language_service.dart';
 import 'profile_page.dart';
 import 'alert_feed_page.dart';
 import 'track_ai_page.dart';
 import 'dashboard_screen.dart';
 
 class SettingsPage extends StatefulWidget {
-  final Map<String, dynamic> userData; // Add this parameter
+  final Map<String, dynamic> userData;
   
   const SettingsPage({Key? key, required this.userData}) : super(key: key);
   
@@ -18,9 +20,8 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool isDarkMode = false;
-  int _selectedIndex = 4; // Index for Settings tab
+  int _selectedIndex = 4;
   
-  // Alert Preferences State
   Map<String, dynamic> alertPreferences = {
     'channels': {
       'push_notifications': true,
@@ -54,9 +55,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadAlertPreferences();
   }
 
-  // Navigation handler for bottom navigation bar
-   void _onItemTapped(int index) {
-    if (index == _selectedIndex) return; // Don't navigate if already on this page
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
     
     setState(() {
       _selectedIndex = index;
@@ -64,7 +64,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
     switch (index) {
       case 0:
-        // TrackAI
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -73,7 +72,6 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         break;
       case 1:
-        // Alert Feed
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -82,7 +80,6 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         break;
       case 2:
-        // Dashboard
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -91,7 +88,6 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         break;
       case 3:
-        // Profile
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -100,73 +96,36 @@ class _SettingsPageState extends State<SettingsPage> {
         );
         break;
       case 4:
-        // Already on Settings - do nothing
         break;
     }
-  }
-
-
-  // Navigation methods for different settings sections
-  void _navigateToDataExport() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DataExportPage(),
-      ),
-    );
-  }
-
-  void _navigateToDeviceSettings() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => DeviceSettingsPage(),
-      ),
-    );
   }
 
   void _navigateToFontSettings() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => FontSettingsPage(),
-      ),
+      MaterialPageRoute(builder: (context) => FontSettingsPage()),
     );
   }
 
   void _navigateToLanguageSettings() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => LanguageSettingsPage(),
-      ),
+      MaterialPageRoute(builder: (context) => LanguageSettingsPage()),
     );
   }
 
-  // Appearance toggle function
   void _toggleDarkMode(bool value) {
     setState(() {
       isDarkMode = value;
     });
-
-    // Optional: implement global theme logic here
-    if (isDarkMode) {
-      print("Dark Mode Enabled");
-    } else {
-      print("Light Mode Enabled");
-    }
   }
 
-  // Load alert preferences from backend
   Future<void> _loadAlertPreferences() async {
     try {
-      // Replace with actual user ID
-      String userId = "user123"; // Get from authentication
-      
+      String userId = "user123";
       final response = await http.get(
         Uri.parse('http://localhost:3000/api/alert-preferences/$userId'),
       );
-
       if (response.statusCode == 200) {
         setState(() {
           alertPreferences = json.decode(response.body);
@@ -177,11 +136,9 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // Save alert preferences to backend
   Future<void> _saveAlertPreferences() async {
     try {
-      String userId = "user123"; // Get from authentication
-      
+      String userId = "user123";
       final response = await http.post(
         Uri.parse('http://localhost:3000/api/alert-preferences'),
         headers: {'Content-Type': 'application/json'},
@@ -190,10 +147,13 @@ class _SettingsPageState extends State<SettingsPage> {
           'preferences': alertPreferences,
         }),
       );
-
       if (response.statusCode == 200) {
+        final languageService = Provider.of<LanguageService>(context, listen: false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Alert preferences saved successfully')),
+          SnackBar(content: Text(languageService.translate(
+            'Alert preferences saved successfully',
+            'Matagumpay na na-save ang mga kagustuhan sa alerto'
+          ))),
         );
       }
     } catch (e) {
@@ -203,22 +163,27 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // Show Alert Channels Dialog
   void _showAlertChannelsDialog() {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
+    final translations = AppTranslations(languageService);
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Preferred Alert Channels'),
+              title: Text(translations.preferredAlertChannels),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SwitchListTile(
-                      title: Text('Push Notifications'),
-                      subtitle: Text('Instant alerts on your device'),
+                      title: Text(languageService.translate('Push Notifications', 'Push Notifications')),
+                      subtitle: Text(languageService.translate(
+                        'Instant alerts on your device',
+                        'Instant na alerto sa iyong device'
+                      )),
                       value: alertPreferences['channels']['push_notifications'],
                       activeColor: Colors.redAccent,
                       onChanged: (value) {
@@ -228,8 +193,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                     ),
                     SwitchListTile(
-                      title: Text('SMS Messages'),
-                      subtitle: Text('Text messages to your phone'),
+                      title: Text(languageService.translate('SMS Messages', 'SMS Messages')),
+                      subtitle: Text(languageService.translate(
+                        'Text messages to your phone',
+                        'Text messages sa iyong telepono'
+                      )),
                       value: alertPreferences['channels']['sms'],
                       activeColor: Colors.redAccent,
                       onChanged: (value) {
@@ -239,8 +207,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                     ),
                     SwitchListTile(
-                      title: Text('Email Alerts'),
-                      subtitle: Text('Email notifications'),
+                      title: Text(languageService.translate('Email Alerts', 'Email Alerts')),
+                      subtitle: Text(languageService.translate(
+                        'Email notifications',
+                        'Email notifications'
+                      )),
                       value: alertPreferences['channels']['email'],
                       activeColor: Colors.redAccent,
                       onChanged: (value) {
@@ -250,8 +221,11 @@ class _SettingsPageState extends State<SettingsPage> {
                       },
                     ),
                     SwitchListTile(
-                      title: Text('Phone Call'),
-                      subtitle: Text('Automated voice calls for critical alerts'),
+                      title: Text(languageService.translate('Phone Call', 'Tawag sa Telepono')),
+                      subtitle: Text(languageService.translate(
+                        'Automated voice calls for critical alerts',
+                        'Automated na tawag para sa kritikal na alerto'
+                      )),
                       value: alertPreferences['channels']['phone_call'],
                       activeColor: Colors.redAccent,
                       onChanged: (value) {
@@ -266,11 +240,11 @@ class _SettingsPageState extends State<SettingsPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Cancel'),
+                  child: Text(translations.cancel),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    setState(() {}); // Update main state
+                    setState(() {});
                     _saveAlertPreferences();
                     Navigator.pop(context);
                   },
@@ -278,7 +252,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     backgroundColor: Colors.redAccent,
                     foregroundColor: Colors.white,
                   ),
-                  child: Text('Save'),
+                  child: Text(translations.save),
                 ),
               ],
             );
@@ -288,22 +262,27 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Show Quiet Hours Dialog
   void _showQuietHoursDialog() {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
+    final translations = AppTranslations(languageService);
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Quiet Hours Settings'),
+              title: Text(translations.quietHoursSettings),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SwitchListTile(
-                      title: Text('Enable Quiet Hours'),
-                      subtitle: Text('Reduce non-critical alerts during specified hours'),
+                      title: Text(languageService.translate('Enable Quiet Hours', 'I-enable ang Quiet Hours')),
+                      subtitle: Text(languageService.translate(
+                        'Reduce non-critical alerts during specified hours',
+                        'Bawasan ang non-critical alerts sa tinukoy na oras'
+                      )),
                       value: alertPreferences['quiet_hours']['enabled'],
                       activeColor: Colors.redAccent,
                       onChanged: (value) {
@@ -315,7 +294,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     if (alertPreferences['quiet_hours']['enabled']) ...[
                       ListTile(
                         leading: Icon(Icons.bedtime, color: Colors.redAccent),
-                        title: Text('Start Time'),
+                        title: Text(languageService.translate('Start Time', 'Oras ng Simula')),
                         subtitle: Text(alertPreferences['quiet_hours']['start_time']),
                         onTap: () async {
                           TimeOfDay? time = await showTimePicker(
@@ -335,7 +314,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       ListTile(
                         leading: Icon(Icons.wb_sunny, color: Colors.redAccent),
-                        title: Text('End Time'),
+                        title: Text(languageService.translate('End Time', 'Oras ng Pagtatapos')),
                         subtitle: Text(alertPreferences['quiet_hours']['end_time']),
                         onTap: () async {
                           TimeOfDay? time = await showTimePicker(
@@ -354,8 +333,11 @@ class _SettingsPageState extends State<SettingsPage> {
                         },
                       ),
                       SwitchListTile(
-                        title: Text('Emergency Override'),
-                        subtitle: Text('Allow critical alerts during quiet hours'),
+                        title: Text(languageService.translate('Emergency Override', 'Emergency Override')),
+                        subtitle: Text(languageService.translate(
+                          'Allow critical alerts during quiet hours',
+                          'Pahintulutan ang kritikal na alerto sa quiet hours'
+                        )),
                         value: alertPreferences['quiet_hours']['emergency_override'],
                         activeColor: Colors.redAccent,
                         onChanged: (value) {
@@ -371,11 +353,11 @@ class _SettingsPageState extends State<SettingsPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Cancel'),
+                  child: Text(translations.cancel),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    setState(() {}); // Update main state
+                    setState(() {});
                     _saveAlertPreferences();
                     Navigator.pop(context);
                   },
@@ -383,7 +365,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     backgroundColor: Colors.redAccent,
                     foregroundColor: Colors.white,
                   ),
-                  child: Text('Save'),
+                  child: Text(translations.save),
                 ),
               ],
             );
@@ -393,15 +375,17 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Show Emergency Contacts Dialog
   void _showEmergencyContactsDialog() {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
+    final translations = AppTranslations(languageService);
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Emergency Contact List'),
+              title: Text(translations.emergencyContactList),
               content: Container(
                 width: double.maxFinite,
                 child: Column(
@@ -438,7 +422,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ElevatedButton.icon(
                       onPressed: () => _showAddContactDialog(setDialogState),
                       icon: Icon(Icons.add),
-                      label: Text('Add Contact'),
+                      label: Text(languageService.translate('Add Contact', 'Magdagdag ng Contact')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
                         foregroundColor: Colors.white,
@@ -450,11 +434,11 @@ class _SettingsPageState extends State<SettingsPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text('Cancel'),
+                  child: Text(translations.cancel),
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    setState(() {}); // Update main state
+                    setState(() {});
                     _saveAlertPreferences();
                     Navigator.pop(context);
                   },
@@ -462,7 +446,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     backgroundColor: Colors.redAccent,
                     foregroundColor: Colors.white,
                   ),
-                  child: Text('Save'),
+                  child: Text(translations.save),
                 ),
               ],
             );
@@ -472,8 +456,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Show Add Contact Dialog
   void _showAddContactDialog(Function setParentState) {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
     final relationshipController = TextEditingController();
@@ -482,14 +466,14 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Add Emergency Contact'),
+          title: Text(languageService.translate('Add Emergency Contact', 'Magdagdag ng Emergency Contact')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
                 decoration: InputDecoration(
-                  labelText: 'Full Name',
+                  labelText: languageService.translate('Full Name', 'Buong Pangalan'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -498,7 +482,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 controller: phoneController,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: 'Phone Number',
+                  labelText: languageService.translate('Phone Number', 'Numero ng Telepono'),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -506,7 +490,10 @@ class _SettingsPageState extends State<SettingsPage> {
               TextField(
                 controller: relationshipController,
                 decoration: InputDecoration(
-                  labelText: 'Relationship (e.g., Spouse, Doctor)',
+                  labelText: languageService.translate(
+                    'Relationship (e.g., Spouse, Doctor)',
+                    'Relasyon (hal., Asawa, Doktor)'
+                  ),
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -515,7 +502,7 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel'),
+              child: Text(languageService.translate('Cancel', 'Kanselahin')),
             ),
             ElevatedButton(
               onPressed: () {
@@ -537,7 +524,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 backgroundColor: Colors.redAccent,
                 foregroundColor: Colors.white,
               ),
-              child: Text('Add'),
+              child: Text(languageService.translate('Add', 'Idagdag')),
             ),
           ],
         );
@@ -547,10 +534,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    final translations = AppTranslations(languageService);
+    
     return Scaffold(
       body: Column(
         children: [
-          // Header with gradient background
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -579,9 +568,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Center(
+                  Center(
                     child: Text(
-                      "Settings",
+                      translations.settings,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -595,50 +584,43 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
 
-          // Settings content
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.only(bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionTitle("Permissions"),
-                  _buildListTile("Data Export & Download", Icons.download, _navigateToDataExport),
-
-                  _buildSectionTitle("Device Settings"),
-                  _buildListTile("Pair/Remove Device", Icons.devices, _navigateToDeviceSettings),
-
-                  _buildSectionTitle("Alert Preferences"),
+                  _buildSectionTitle(translations.alertPreferences),
                   _buildAlertPreferenceTile(
-                    "Preferred Alert Channels", 
+                    translations.preferredAlertChannels, 
                     Icons.notifications, 
                     _getChannelSummary(),
                     _showAlertChannelsDialog
                   ),
                   _buildAlertPreferenceTile(
-                    "Quiet Hours Settings", 
+                    translations.quietHoursSettings, 
                     Icons.access_time, 
                     alertPreferences['quiet_hours']['enabled'] 
                         ? "${alertPreferences['quiet_hours']['start_time']} - ${alertPreferences['quiet_hours']['end_time']}"
-                        : "Disabled",
+                        : languageService.translate("Disabled", "Naka-disable"),
                     _showQuietHoursDialog
                   ),
                   _buildAlertPreferenceTile(
-                    "Emergency Contact List", 
+                    translations.emergencyContactList, 
                     Icons.contacts, 
-                    "${alertPreferences['emergency_contacts'].length} contacts",
+                    "${alertPreferences['emergency_contacts'].length} ${languageService.translate('contacts', 'mga contact')}",
                     _showEmergencyContactsDialog
                   ),
 
-                  _buildSectionTitle("Appearance"),
+                  _buildSectionTitle(translations.appearance),
                   SwitchListTile(
                     value: isDarkMode,
                     onChanged: _toggleDarkMode,
-                    title: const Text("Light/Dark Mode Toggle"),
+                    title: Text(translations.lightDarkMode),
                     activeColor: Colors.redAccent,
                   ),
-                  _buildListTile("Font size adjustment (Small / Medium / Large)", Icons.format_size, _navigateToFontSettings),
-                  _buildListTile("Language selection", Icons.language, _navigateToLanguageSettings),
+                  _buildListTile(translations.fontSizeAdjustment, Icons.format_size, _navigateToFontSettings),
+                  _buildListTile(translations.languageSelection, Icons.language, _navigateToLanguageSettings),
                 ],
               ),
             ),
@@ -646,51 +628,49 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
 
-      // Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.redAccent,
         unselectedItemColor: Colors.black,
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
-        items: const [
+        items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.smart_toy),
-            label: "TrackAI",
+            label: translations.trackAI,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications),
-            label: "Alert",
+            label: translations.alert,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard),
-            label: "Dashboard",
+            label: translations.dashboard,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: "Profile",
+            label: translations.profile,
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
-            label: "Settings",
+            label: translations.settings,
           ),
         ],
       ),
     );
   }
 
-  // Get summary of enabled channels
   String _getChannelSummary() {
+    final languageService = Provider.of<LanguageService>(context, listen: false);
     List<String> enabled = [];
     if (alertPreferences['channels']['push_notifications']) enabled.add('Push');
     if (alertPreferences['channels']['sms']) enabled.add('SMS');
     if (alertPreferences['channels']['email']) enabled.add('Email');
-    if (alertPreferences['channels']['phone_call']) enabled.add('Call');
+    if (alertPreferences['channels']['phone_call']) enabled.add(languageService.translate('Call', 'Tawag'));
     
-    return enabled.isNotEmpty ? enabled.join(', ') : 'None selected';
+    return enabled.isNotEmpty ? enabled.join(', ') : languageService.translate('None selected', 'Walang napili');
   }
 
-  // Section Title Widget
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 0, 8),
@@ -701,7 +681,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Settings List Item Widget with Navigation
   Widget _buildListTile(String title, IconData icon, [VoidCallback? onTap]) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -712,10 +691,10 @@ class _SettingsPageState extends State<SettingsPage> {
         title: Text(title),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: onTap ?? () {
-          // Default fallback - show work in progress
+          final languageService = Provider.of<LanguageService>(context, listen: false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("$title - Coming Soon"),
+              content: Text("$title - ${languageService.translate('Coming Soon', 'Malapit Na')}"),
               backgroundColor: Colors.orange,
             ),
           );
@@ -724,7 +703,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // Alert Preference Tile with subtitle
   Widget _buildAlertPreferenceTile(String title, IconData icon, String subtitle, VoidCallback onTap) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -741,154 +719,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 }
 
-// Placeholder pages for different settings sections
-class DataExportPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Data Export & Download'),
-        backgroundColor: Colors.redAccent,
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Export Your Health Data',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: Icon(Icons.file_download, color: Colors.green),
-                title: Text('Export as CSV'),
-                subtitle: Text('Download your vital signs data as CSV file'),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('CSV export started...')),
-                  );
-                },
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: Icon(Icons.picture_as_pdf, color: Colors.red),
-                title: Text('Export as PDF Report'),
-                subtitle: Text('Generate comprehensive health report'),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('PDF report generation started...')),
-                  );
-                },
-              ),
-            ),
-            Card(
-              child: ListTile(
-                leading: Icon(Icons.cloud_download, color: Colors.blue),
-                title: Text('Download Raw Data'),
-                subtitle: Text('Download all sensor readings in JSON format'),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Raw data download started...')),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class DeviceSettingsPage extends StatefulWidget {
-  @override
-  _DeviceSettingsPageState createState() => _DeviceSettingsPageState();
-}
-
-class _DeviceSettingsPageState extends State<DeviceSettingsPage> {
-  bool isDevicePaired = true;
-  String deviceName = "Arduino R4 WiFi";
-  String deviceIP = "192.168.68.118";
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Device Settings'),
-        backgroundColor: Colors.redAccent,
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Connected Devices',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: Icon(
-                  Icons.devices,
-                  color: isDevicePaired ? Colors.green : Colors.grey,
-                ),
-                title: Text(deviceName),
-                subtitle: Text('IP: $deviceIP'),
-                trailing: isDevicePaired 
-                    ? Icon(Icons.check_circle, color: Colors.green)
-                    : Icon(Icons.error, color: Colors.red),
-              ),
-            ),
-            SizedBox(height: 16),
-            if (isDevicePaired) ...[
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    isDevicePaired = false;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Device unpaired successfully')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: Text('Unpair Device', style: TextStyle(color: Colors.white)),
-              ),
-            ] else ...[
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    isDevicePaired = true;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Device paired successfully')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: Text('Pair Device', style: TextStyle(color: Colors.white)),
-              ),
-            ],
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Scanning for devices...')),
-                );
-              },
-              child: Text('Scan for New Devices'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
+// Font Settings Page
 class FontSettingsPage extends StatefulWidget {
   @override
   _FontSettingsPageState createState() => _FontSettingsPageState();
@@ -900,9 +731,11 @@ class _FontSettingsPageState extends State<FontSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    
     return Scaffold(
       appBar: AppBar(
-        title: Text('Font Settings'),
+        title: Text(languageService.translate('Font Settings', 'Setting ng Font')),
         backgroundColor: Colors.redAccent,
         foregroundColor: Colors.white,
       ),
@@ -912,18 +745,21 @@ class _FontSettingsPageState extends State<FontSettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Font Size Settings',
+              languageService.translate('Font Size Settings', 'Setting ng Laki ng Font'),
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
             Text(
-              'Preview text with current font size',
+              languageService.translate('Preview text with current font size', 'Preview ng text sa kasalukuyang laki ng font'),
               style: TextStyle(fontSize: fontSize),
             ),
             SizedBox(height: 24),
-            Text('Select Font Size:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              languageService.translate('Select Font Size:', 'Pumili ng Laki ng Font:'),
+              style: TextStyle(fontWeight: FontWeight.bold)
+            ),
             RadioListTile<String>(
-              title: Text('Small', style: TextStyle(fontSize: 14)),
+              title: Text(languageService.translate('Small', 'Maliit'), style: TextStyle(fontSize: 14)),
               value: 'Small',
               groupValue: selectedFontSize,
               onChanged: (value) {
@@ -934,7 +770,7 @@ class _FontSettingsPageState extends State<FontSettingsPage> {
               },
             ),
             RadioListTile<String>(
-              title: Text('Medium', style: TextStyle(fontSize: 16)),
+              title: Text(languageService.translate('Medium', 'Katamtaman'), style: TextStyle(fontSize: 16)),
               value: 'Medium',
               groupValue: selectedFontSize,
               onChanged: (value) {
@@ -945,7 +781,7 @@ class _FontSettingsPageState extends State<FontSettingsPage> {
               },
             ),
             RadioListTile<String>(
-              title: Text('Large', style: TextStyle(fontSize: 18)),
+              title: Text(languageService.translate('Large', 'Malaki'), style: TextStyle(fontSize: 18)),
               value: 'Large',
               groupValue: selectedFontSize,
               onChanged: (value) {
@@ -959,11 +795,14 @@ class _FontSettingsPageState extends State<FontSettingsPage> {
             ElevatedButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Font size saved: $selectedFontSize')),
+                  SnackBar(content: Text(languageService.translate(
+                    'Font size saved: $selectedFontSize',
+                    'Na-save ang laki ng font: $selectedFontSize'
+                  ))),
                 );
                 Navigator.pop(context);
               },
-              child: Text('Save Font Settings'),
+              child: Text(languageService.translate('Save Font Settings', 'I-save ang Setting ng Font')),
             ),
           ],
         ),
@@ -972,6 +811,7 @@ class _FontSettingsPageState extends State<FontSettingsPage> {
   }
 }
 
+// Language Settings Page
 class LanguageSettingsPage extends StatefulWidget {
   @override
   _LanguageSettingsPageState createState() => _LanguageSettingsPageState();
@@ -982,22 +822,24 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
   
   final List<Map<String, String>> languages = [
     {'code': 'en', 'name': 'English'},
-    {'code': 'es', 'name': 'Spanish'},
-    {'code': 'fr', 'name': 'French'},
-    {'code': 'de', 'name': 'German'},
-    {'code': 'it', 'name': 'Italian'},
-    {'code': 'pt', 'name': 'Portuguese'},
-    {'code': 'zh', 'name': 'Chinese'},
-    {'code': 'ja', 'name': 'Japanese'},
-    {'code': 'ko', 'name': 'Korean'},
-    {'code': 'ar', 'name': 'Arabic'},
+    {'code': 'fil', 'name': 'Filipino'},
   ];
 
   @override
+  void initState() {
+    super.initState();
+    final languageService = Provider.of<LanguageService>(context, listen: false);
+    selectedLanguage = languageService.currentLanguage;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final languageService = Provider.of<LanguageService>(context);
+    final translations = AppTranslations(languageService);
+    
     return Scaffold(
       appBar: AppBar(
-        title: Text('Language Settings'),
+        title: Text(translations.languageSelection),
         backgroundColor: Colors.redAccent,
         foregroundColor: Colors.white,
       ),
@@ -1007,7 +849,7 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Select Language',
+              translations.selectLanguage,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 16),
@@ -1016,16 +858,52 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
                 itemCount: languages.length,
                 itemBuilder: (context, index) {
                   final language = languages[index];
-                  return RadioListTile<String>(
-                    title: Text(language['name']!),
-                    value: language['name']!,
-                    groupValue: selectedLanguage,
-                    onChanged: (value) {
-                      setState(() {
-                        selectedLanguage = value!;
-                      });
-                    },
-                    activeColor: Colors.redAccent,
+                  return Card(
+                    elevation: selectedLanguage == language['name'] ? 4 : 1,
+                    margin: EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: selectedLanguage == language['name'] 
+                            ? Colors.redAccent 
+                            : Colors.grey.shade300,
+                        width: selectedLanguage == language['name'] ? 2 : 1,
+                      ),
+                    ),
+                    child: RadioListTile<String>(
+                      title: Row(
+                        children: [
+                          Text(
+                            language['name']!,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: selectedLanguage == language['name'] 
+                                  ? FontWeight.bold 
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          if (language['code'] == 'en')
+                            Text('🇬🇧', style: TextStyle(fontSize: 20)),
+                          if (language['code'] == 'fil')
+                            Text('🇵🇭', style: TextStyle(fontSize: 20)),
+                        ],
+                      ),
+                      subtitle: Text(
+                        language['code'] == 'en' 
+                            ? 'English (Default)' 
+                            : 'Wikang Filipino',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: language['name']!,
+                      groupValue: selectedLanguage,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedLanguage = value!;
+                        });
+                      },
+                      activeColor: Colors.redAccent,
+                    ),
                   );
                 },
               ),
@@ -1034,18 +912,18 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
             Container(
               padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+                color: Colors.blue.shade50,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.shade200),
+                border: Border.all(color: Colors.blue.shade200),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info, color: Colors.orange),
+                  Icon(Icons.info, color: Colors.blue),
                   SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Language changes will take effect after restarting the app.',
-                      style: TextStyle(color: Colors.orange.shade800),
+                      translations.languageChangeInfo,
+                      style: TextStyle(color: Colors.blue.shade800),
                     ),
                   ),
                 ],
@@ -1055,21 +933,26 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Language changed to $selectedLanguage'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  Navigator.pop(context);
+                onPressed: () async {
+                  await languageService.setLanguage(selectedLanguage);
+                  
+                  if (mounted) {
+                    final trans = AppTranslations(languageService);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${trans.languageChangedTo} $selectedLanguage'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.pop(context);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
                   foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: 12),
                 ),
-                child: Text('Save Language Settings'),
+                child: Text(translations.saveLanguageSettings),
               ),
             ),
           ],
@@ -1078,4 +961,3 @@ class _LanguageSettingsPageState extends State<LanguageSettingsPage> {
     );
   }
 }
-
