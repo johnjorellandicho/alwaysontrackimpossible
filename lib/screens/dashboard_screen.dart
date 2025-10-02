@@ -1,6 +1,7 @@
 import 'package:alwaysontrackimpossible/screens/alert_feed_page.dart';
 import 'package:alwaysontrackimpossible/screens/setting_page.dart';
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;  
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +10,6 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:html' as html;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'profile_page.dart'; 
@@ -51,6 +51,162 @@ class SensorDataPoint {
       spO2: json['spO2'],
     );
   }
+}
+
+class LineChartPainter extends CustomPainter {
+  final List<SensorDataPoint> dataPoints;
+  final String chartType;
+
+  LineChartPainter({required this.dataPoints, required this.chartType});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (dataPoints.isEmpty) return;
+
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final fillPaint = Paint()
+      ..style = PaintingStyle.fill;
+
+    // Get values based on chart type
+    List<double> values = [];
+    Color lineColor;
+    String unit;
+    
+    switch (chartType) {
+      case "Temperature":
+        values = dataPoints.map((p) => p.temperature).toList();
+        lineColor = Colors.red;
+        unit = "°C";
+        break;
+      case "Heart Rate":
+        values = dataPoints.map((p) => p.heartRate.toDouble()).toList();
+        lineColor = Colors.pink;
+        unit = "BPM";
+        break;
+      case "SpO2":
+        values = dataPoints.map((p) => p.spO2.toDouble()).toList();
+        lineColor = Colors.blue;
+        unit = "%";
+        break;
+      case "Humidity":
+        values = dataPoints.map((p) => p.humidity).toList();
+        lineColor = Colors.cyan;
+        unit = "%";
+        break;
+      default:
+        values = dataPoints.map((p) => p.temperature).toList();
+        lineColor = Colors.red;
+        unit = "°C";
+    }
+
+    paint.color = lineColor;
+
+    // Calculate min/max for scaling
+    final minValue = values.reduce((a, b) => a < b ? a : b);
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    final valueRange = maxValue - minValue;
+    
+    if (valueRange == 0) return;
+
+    // Draw grid lines
+    final gridPaint = Paint()
+      ..color = Colors.grey.shade300
+      ..strokeWidth = 0.5;
+
+    for (int i = 0; i <= 4; i++) {
+      final y = size.height * (i / 4);
+      canvas.drawLine(
+        Offset(30, y),
+        Offset(size.width - 10, y),
+        gridPaint,
+      );
+    }
+
+    // Draw Y-axis labels WITHOUT using TextDirection
+    for (int i = 0; i <= 4; i++) {
+      final value = maxValue - (valueRange * i / 4);
+      
+      // Create a paragraph builder instead of TextPainter
+      final paragraphBuilder = ui.ParagraphBuilder(
+        ui.ParagraphStyle(
+          textAlign: TextAlign.right,
+          fontSize: 10,
+        ),
+      )
+        ..pushStyle(ui.TextStyle(color: Colors.black54))
+        ..addText(value.toStringAsFixed(1));
+      
+      final paragraph = paragraphBuilder.build()
+        ..layout(ui.ParagraphConstraints(width: 25));
+      
+      canvas.drawParagraph(
+        paragraph,
+        Offset(0, size.height * (i / 4) - 6),
+      );
+    }
+
+    // Draw the line chart
+    final path = Path();
+    final fillPath = Path();
+    
+    for (int i = 0; i < values.length; i++) {
+      final x = 30 + (size.width - 40) * (i / (values.length - 1));
+      final normalizedValue = (values[i] - minValue) / valueRange;
+      final y = size.height - (size.height * normalizedValue);
+
+      if (i == 0) {
+        path.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+
+      // Draw data point
+      canvas.drawCircle(
+        Offset(x, y),
+        3,
+        Paint()..color = lineColor,
+      );
+    }
+
+    // Complete fill path
+    fillPath.lineTo(30 + (size.width - 40), size.height);
+    fillPath.close();
+
+    // Draw filled area
+    fillPaint.color = lineColor.withOpacity(0.2);
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Draw line
+    canvas.drawPath(path, paint);
+
+    // Draw chart title
+    final titleBuilder = ui.ParagraphBuilder(
+      ui.ParagraphStyle(
+        textAlign: TextAlign.center,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+    )
+      ..pushStyle(ui.TextStyle(color: Colors.black87))
+      ..addText("$chartType ($unit)");
+    
+    final titleParagraph = titleBuilder.build()
+      ..layout(ui.ParagraphConstraints(width: size.width));
+    
+    canvas.drawParagraph(
+      titleParagraph,
+      Offset(0, 5),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 class DashboardScreen extends StatefulWidget {
@@ -457,34 +613,26 @@ Future<void> _exportToExcel() async {
   });
 
   try {
-    // Get analytics summary
     final summary = _getAnalyticsSummary();
     
-    // Create comprehensive CSV content
+    // Create CSV content
     String csvContent = '';
-    
-    // Add header information
     csvContent += 'Health Data Export\n';
     csvContent += 'Export Date,${DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now())}\n';
     csvContent += 'Time Range,${_getTimeRangeDisplayName(selectedTimeRange)}\n';
-    csvContent += 'Total Records,${filteredAnalyticsData.length}\n';
-    csvContent += '\n';
+    csvContent += 'Total Records,${filteredAnalyticsData.length}\n\n';
     
-    // Add summary statistics
     csvContent += 'SUMMARY STATISTICS\n';
     csvContent += 'Average Temperature,${summary['avgTemp'].toStringAsFixed(2)}°C\n';
     csvContent += 'Average Heart Rate,${summary['avgHeartRate']} BPM\n';
     csvContent += 'Average SpO2,${summary['avgSpO2']}%\n';
     csvContent += 'Average Humidity,${summary['avgHumidity'].toStringAsFixed(2)}%\n';
     csvContent += 'Min Temperature,${summary['minTemp'].toStringAsFixed(2)}°C\n';
-    csvContent += 'Max Temperature,${summary['maxTemp'].toStringAsFixed(2)}°C\n';
-    csvContent += '\n';
+    csvContent += 'Max Temperature,${summary['maxTemp'].toStringAsFixed(2)}°C\n\n';
     
-    // Add detailed data header
     csvContent += 'DETAILED SENSOR DATA\n';
     csvContent += 'Timestamp,Temperature(°C),Humidity(%),Heart Rate(BPM),SpO2(%),Temperature Status,Heart Rate Status,SpO2 Status\n';
     
-    // Add detailed data
     for (final dataPoint in filteredAnalyticsData) {
       final tempStatus = _getTemperatureStatusForExport(dataPoint.temperature);
       final hrStatus = _getHeartRateStatusForExport(dataPoint.heartRate);
@@ -500,84 +648,26 @@ Future<void> _exportToExcel() async {
       csvContent += '$spo2Status\n';
     }
 
-    // Generate filename with timestamp
     final fileName = 'health_data_${selectedTimeRange.toString().split('.').last}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.csv';
     
-    // For web: Use HTML download approach
-    if (kIsWeb) {
-      // Create blob and download for web
-      final bytes = utf8.encode(csvContent);
-      final blob = html.Blob([bytes]);
-      final url = html.Url.createObjectUrlFromBlob(blob);
-      final anchor = html.document.createElement('a') as html.AnchorElement
-        ..href = url
-        ..style.display = 'none'
-        ..download = fileName;
-      html.document.body!.children.add(anchor);
-      anchor.click();
-      html.document.body!.children.remove(anchor);
-      html.Url.revokeObjectUrl(url);
-    } else {
-      // For mobile: Try Downloads directory first, then fallback
-      try {
-        Directory? directory;
-        
-        // Try to get Downloads directory (Android)
-        if (Platform.isAndroid) {
-          directory = Directory('/storage/emulated/0/Download');
-          if (!await directory.exists()) {
-            directory = await getExternalStorageDirectory();
-          }
-        } else if (Platform.isIOS) {
-          directory = await getApplicationDocumentsDirectory();
-        }
-        
-        if (directory != null) {
-          final file = File('${directory.path}/$fileName');
-          await file.writeAsString(csvContent);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('File saved to: ${file.path}'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 5),
-              action: SnackBarAction(
-                label: 'Open Folder',
-                onPressed: () {
-                  // You can add code here to open file manager
-                },
-              ),
-            ),
-          );
-        } else {
-          throw Exception('Cannot access storage directory');
-        }
-      } catch (e) {
-        // Fallback: Save to app documents directory and share
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsString(csvContent);
-        
-        await Share.shareXFiles(
-          [XFile(file.path)],
-          text: 'Health Data Export - Save this file to your preferred location',
-        );
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('File created and shared: $fileName'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+    // For mobile: Save and share
+    if (!kIsWeb) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsString(csvContent);
+      
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Health Data Export',
+      );
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exported ${filteredAnalyticsData.length} records'),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Successfully exported ${filteredAnalyticsData.length} data points to $fileName'),
-        backgroundColor: Colors.green,
-      ),
-    );
     
   } catch (e) {
     print('Export error: $e');
