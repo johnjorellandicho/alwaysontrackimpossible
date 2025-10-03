@@ -1,8 +1,8 @@
 pipeline {
-    agent any
-
-    tools {
-        nodejs "node16"
+    agent {
+        docker {
+            image 'cirrusci/flutter:3.24.3'  // Flutter image with SDK pre-installed
+        }
     }
 
     environment {
@@ -20,13 +20,13 @@ pipeline {
 
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                sh 'flutter pub get'
             }
         }
 
-        stage('Build') {
+        stage('Build APK') {
             steps {
-                sh 'npm run build'
+                sh 'flutter build apk --release'
             }
         }
 
@@ -39,10 +39,10 @@ pipeline {
 
     post {
         success {
-            echo '✅ Build and Deployment Successful!'
+            echo Flutter Build and Deployment Successful!'
         }
         failure {
-            echo '❌ Build or Deployment Failed!'
+            echo ' Build or Deployment Failed!'
         }
     }
 }
