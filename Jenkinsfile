@@ -2,18 +2,37 @@ pipeline {
     agent any
     
     environment {
-        FLUTTER_HOME = '/usr/local/flutter'
+        FLUTTER_HOME = '/var/jenkins_home/flutter'
         ANDROID_HOME = '/usr/local/android-sdk'
         PATH = "${FLUTTER_HOME}/bin:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:${PATH}"
         FIREBASE_TOKEN = credentials('firebase-token')
     }
     
     stages {
+        stage('Install Flutter') {
+            steps {
+                echo 'Checking and installing Flutter...'
+                sh '''
+                    if [ ! -d "${FLUTTER_HOME}" ]; then
+                        echo "Flutter not found. Installing..."
+                        git clone https://github.com/flutter/flutter.git -b stable ${FLUTTER_HOME}
+                    else
+                        echo "Flutter already installed. Updating..."
+                        cd ${FLUTTER_HOME}
+                        git pull
+                    fi
+                    
+                    ${FLUTTER_HOME}/bin/flutter --version
+                    ${FLUTTER_HOME}/bin/flutter doctor -v
+                    ${FLUTTER_HOME}/bin/flutter config --no-analytics
+                '''
+            }
+        }
+        
         stage('Flutter Setup') {
             steps {
                 echo 'Setting up Flutter environment...'
                 sh '''
-                    flutter doctor -v
                     flutter pub get
                     flutter clean
                 '''
@@ -86,6 +105,7 @@ pipeline {
             steps {
                 echo 'Deploying to Firebase production...'
                 sh '''
+                    npm install -g firebase-tools
                     firebase deploy --only hosting,database --token ${FIREBASE_TOKEN} --project alwaysontrack-prod
                 '''
             }
