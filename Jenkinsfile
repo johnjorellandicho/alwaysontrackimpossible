@@ -4,7 +4,7 @@ pipeline {
     environment {
         ANDROID_HOME = "/var/jenkins_home/android-sdk"
         ANDROID_SDK_ROOT = "/var/jenkins_home/android-sdk"
-        PATH = "$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator"
+        PATH = "$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$HOME/flutter/bin"
     }
 
     stages {
@@ -17,8 +17,8 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    sudo apt-get update
-                    sudo apt-get install -y curl unzip zip clang cmake ninja-build pkg-config
+                    apt-get update
+                    apt-get install -y curl unzip zip git clang cmake ninja-build pkg-config
                 '''
             }
         }
@@ -53,7 +53,6 @@ pipeline {
                         echo "Installing Flutter..."
                         git clone https://github.com/flutter/flutter.git -b stable $HOME/flutter
                     fi
-                    export PATH="$HOME/flutter/bin:$PATH"
                     flutter doctor -v
                 '''
             }
@@ -62,7 +61,6 @@ pipeline {
         stage('Build APK') {
             steps {
                 sh '''
-                    export PATH="$HOME/flutter/bin:$PATH"
                     flutter pub get
                     flutter build apk --release
                 '''
