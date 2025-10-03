@@ -1,41 +1,44 @@
 pipeline {
-    agent {
-        docker {
-            // ✅ Use a Docker image that already has Flutter + Android SDK
-            image 'cirrusci/flutter:latest'
-            args '-u root:root'  // ensures we have permission if needed
-        }
+    agent any
+
+    environment {
+        FIREBASE_TOKEN = credentials('firebase-token')
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/johnjorellandicho/alwaysontrackimpossible.git'
-            }
-        }
-
-        stage('Flutter Version') {
-            steps {
-                sh 'flutter --version'
+                git branch: 'main',
+                    url: 'https://github.com/johnjorellandicho/alwaysontrackimpossible.git',
+                    credentialsId: 'github-credentials'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                sh 'flutter pub get'
+                sh 'npm install'
             }
         }
 
-        stage('Build APK') {
+        stage('Build') {
             steps {
-                sh 'flutter build apk --release'
+                sh 'npm run build'
             }
         }
 
-        stage('Archive APK') {
+        stage('Deploy to Firebase') {
             steps {
-                archiveArtifacts artifacts: 'build/app/outputs/flutter-apk/app-release.apk', fingerprint: true
+                sh "npx firebase deploy --token $FIREBASE_TOKEN --non-interactive"
             }
+        }
+    }
+    
+    post {
+        success {
+            echo '✅ Build and Deployment Successful!'
+        }
+        failure {
+            echo '❌ Build or Deployment Failed!'
         }
     }
 }
