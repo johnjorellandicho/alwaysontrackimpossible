@@ -32,6 +32,20 @@ pipeline {
             }
         }
         
+        stage('Debug - Check Directory Structure') {
+            steps {
+                echo 'Checking repository structure...'
+                sh '''
+                    echo "=== Current Directory ==="
+                    pwd
+                    echo "=== Directory Contents ==="
+                    ls -la
+                    echo "=== Finding package.json files ==="
+                    find . -name "package.json" -type f
+                '''
+            }
+        }
+        
         stage('Install Dependencies') {
             steps {
                 echo 'Installing project dependencies...'
@@ -86,11 +100,11 @@ pipeline {
     
     post {
         success {
-            echo 'Pipeline completed successfully!'
+            echo ' Pipeline completed successfully!'
             echo 'Backend is ready to deploy or run'
         }
         failure {
-            echo 'Pipeline failed!'
+            echo ' Pipeline failed!'
             echo 'Check the logs above for errors'
         }
         cleanup {
