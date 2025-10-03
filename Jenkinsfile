@@ -39,10 +39,10 @@ pipeline {
 
     post {
         success {
-            echo Flutter Build and Deployment Successful!'
+            echo "Flutter Build and Deployment Successful!"
         }
         failure {
-            echo ' Build or Deployment Failed!'
+            echo "Build or Deployment Failed!"
         }
     }
 }
