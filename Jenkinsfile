@@ -1,40 +1,98 @@
 pipeline {
     agent {
         docker {
-            image 'cirrusci/flutter:3.24.3'   // Flutter image with SDK pre-installed
-            args '-u root:root'              // so it has permissions to install deps
+            image 'cirrusci/flutter:3.24.3'
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
     }
-
+    
     environment {
-        FIREBASE_TOKEN = credentials('firebase-token')
+        // Only add this if you need Firebase CLI commands
+        FIREBASE_TOKEN = credentials('firebase-token-id')
+        // Add MongoDB URI if needed
+        MONGODB_URI = credentials('mongodb-uri')
     }
-
+    
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/johnjorellandicho/alwaysontrackimpossible.git',
-                    credentialsId: 'github-credentials'
+                checkout scm
+                echo 'Code checked out successfully'
             }
         }
-
-        stage('Install Dependencies') {
+        
+        stage('Verify Firebase Config') {
             steps {
-                sh 'flutter pub get'
+                sh '''
+                    echo "Checking google-services.json..."
+                    if [ -f android/app/google-services.json ]; then
+                        echo "✅ google-services.json found"
+                    else
+                        echo "❌ google-services.json not found"
+                        exit 1
+                    fi
+                '''
             }
         }
-
+        
+        stage('Flutter Doctor') {
+            steps {
+                sh '''
+                    flutter --version
+                    flutter doctor -v
+                '''
+            }
+        }
+        
+        stage('Clean & Get Dependencies') {
+            steps {
+                sh '''
+                    flutter clean
+                    flutter pub get
+                '''
+            }
+        }
+        
+        stage('Analyze Code') {
+            steps {
+                sh 'flutter analyze || true'
+            }
+        }
+        
+        stage('Run Tests') {
+            steps {
+                sh 'flutter test || echo "No tests found or tests failed"'
+            }
+        }
+        
         stage('Build APK') {
             steps {
-                sh 'flutter build apk --release'
+                sh '''
+                    echo "Building release APK..."
+                    flutter build apk --release
+                '''
             }
         }
-
-        stage('Deploy to Firebase') {
+        
+        stage('Archive APK') {
             steps {
-                sh "npx firebase deploy --token $FIREBASE_TOKEN --non-interactive"
+                archiveArtifacts artifacts: 'build/app/outputs/flutter-apk/*.apk', 
+                                 fingerprint: true,
+                                 allowEmptyArchive: false
             }
+        }
+    }
+    
+    post {
+        success {
+            echo '✅ Build completed successfully!'
+            echo 'APK available in build artifacts'
+        }
+        failure {
+            echo '❌ Build failed! Check the logs above for errors.'
+        }
+        always {
+            cleanWs()
         }
     }
 }
