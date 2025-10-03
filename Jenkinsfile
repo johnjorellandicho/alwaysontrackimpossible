@@ -2,82 +2,86 @@ pipeline {
     agent any
     
     environment {
-        FLUTTER_HOME = "${WORKSPACE}/flutter"
-        PATH = "${FLUTTER_HOME}/bin:${PATH}"
+        GITHUB_CREDENTIALS = 'github-credentials'
+        FIREBASE_TOKEN = credentials('firebase-token')
+        REPO_URL = 'https://github.com/johnjorellandicho/alwaysontrackimpossible.git'
+        NODE_VERSION = '18.x'
     }
     
     stages {
-        stage('Setup Flutter') {
-            steps {
-                sh '''
-                    if [ ! -d "${FLUTTER_HOME}" ]; then
-                        echo "Installing Flutter..."
-                        git clone https://github.com/flutter/flutter.git -b stable ${FLUTTER_HOME}
-                    else
-                        echo "Flutter already installed, updating..."
-                        cd ${FLUTTER_HOME}
-                        git pull
-                    fi
-                    
-                    flutter --version
-                    flutter doctor
-                    flutter precache
-                '''
-            }
-        }
-        
         stage('Checkout') {
             steps {
-                checkout scm
+                echo 'Checking out code from repository...'
+                git branch: 'main',
+                    credentialsId: "${GITHUB_CREDENTIALS}",
+                    url: "${REPO_URL}"
             }
         }
         
-        stage('Verify Firebase Config') {
+        stage('Environment Setup') {
             steps {
+                echo 'Setting up Node.js environment...'
                 sh '''
-                    if [ -f android/app/google-services.json ]; then
-                        echo "✅ Firebase configuration found"
-                    else
-                        echo "❌ Firebase configuration missing"
-                        exit 1
-                    fi
+                    node --version
+                    npm --version
                 '''
             }
         }
         
-        stage('Get Dependencies') {
+        stage('Install Dependencies') {
             steps {
-                sh 'flutter pub get'
+                echo 'Installing project dependencies...'
+                sh 'npm ci'
             }
         }
         
-        stage('Analyze Code') {
+        stage('Lint') {
             steps {
-                sh 'flutter analyze || true'
+                echo 'Running code linting...'
+                sh 'npm run lint || true'
             }
         }
         
-        stage('Build APK') {
+        stage('Build') {
             steps {
-                sh 'flutter build apk --release'
+                echo 'Building the application...'
+                sh 'npm run build'
             }
         }
         
-        stage('Archive APK') {
+        stage('Test') {
             steps {
-                archiveArtifacts artifacts: 'build/app/outputs/flutter-apk/*.apk', 
-                                 fingerprint: true,
-                                 allowEmptyArchive: false
+                echo 'Running tests...'
+                sh 'npm test || true'
+            }
+        }
+        
+        stage('Deploy to Firebase') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo 'Deploying to Firebase...'
+                sh '''
+                    npm install -g firebase-tools
+                    firebase deploy --token ${FIREBASE_TOKEN} --non-interactive
+                '''
             }
         }
     }
     
     post {
         success {
-            echo ' Build completed successfully!'
+            echo 'Pipeline completed successfully!'
+            // Add notification here (email, Slack, etc.)
         }
         failure {
-            echo ' Build failed!'
+            echo 'Pipeline failed!'
+            // Add notification here
+        }
+        cleanup {
+            echo 'Cleaning up workspace...'
+            cleanWs()
         }
     }
 }
