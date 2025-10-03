@@ -1,9 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'cirrusci/flutter:3.24.3'  // Flutter image with SDK pre-installed
-        }
-    }
+    agent any
 
     environment {
         FIREBASE_TOKEN = credentials('firebase-token')
