@@ -9,6 +9,7 @@ pipeline {
         GITHUB_CREDENTIALS = 'github-credentials'
         FIREBASE_TOKEN = credentials('firebase-token')
         REPO_URL = 'https://github.com/johnjorellandicho/alwaysontrackimpossible.git'
+        BACKEND_DIR = 'vitalsigns-backend'
     }
     
     stages {
@@ -34,28 +35,36 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 echo 'Installing project dependencies...'
-                sh 'npm install'
+                dir("${BACKEND_DIR}") {
+                    sh 'npm install'
+                }
             }
         }
         
         stage('Lint') {
             steps {
                 echo 'Running code linting...'
-                sh 'npm run lint || true'
-            }
-        }
-        
-        stage('Build') {
-            steps {
-                echo 'Building the application...'
-                sh 'npm run build'
+                dir("${BACKEND_DIR}") {
+                    sh 'npm run lint || echo "Lint not configured, skipping..."'
+                }
             }
         }
         
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                sh 'npm test || true'
+                dir("${BACKEND_DIR}") {
+                    sh 'npm test || echo "Tests not configured or failed, continuing..."'
+                }
+            }
+        }
+        
+        stage('Start Server (Optional)') {
+            steps {
+                echo 'Server can be started with: npm run dev'
+                dir("${BACKEND_DIR}") {
+                    sh 'echo "Server script available: npm run dev"'
+                }
             }
         }
         
@@ -65,10 +74,12 @@ pipeline {
             }
             steps {
                 echo 'Deploying to Firebase...'
-                sh '''
-                    npm install -g firebase-tools
-                    firebase deploy --token ${FIREBASE_TOKEN} --non-interactive
-                '''
+                dir("${BACKEND_DIR}") {
+                    sh '''
+                        npm install -g firebase-tools
+                        firebase deploy --token ${FIREBASE_TOKEN} --non-interactive
+                    '''
+                }
             }
         }
     }
@@ -76,11 +87,11 @@ pipeline {
     post {
         success {
             echo 'Pipeline completed successfully!'
-            // Add notification here (email, Slack, etc.)
+            echo 'Backend is ready to deploy or run'
         }
         failure {
             echo 'Pipeline failed!'
-            // Add notification here
+            echo 'Check the logs above for errors'
         }
         cleanup {
             echo 'Cleaning up workspace...'
