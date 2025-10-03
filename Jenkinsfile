@@ -1,11 +1,14 @@
 pipeline {
     agent any
     
+    tools {
+        nodejs 'NodeJS-18'  // Must match the name in Jenkins Global Tool Configuration
+    }
+    
     environment {
         GITHUB_CREDENTIALS = 'github-credentials'
         FIREBASE_TOKEN = credentials('firebase-token')
         REPO_URL = 'https://github.com/johnjorellandicho/alwaysontrackimpossible.git'
-        NODE_VERSION = '18.x'
     }
     
     stages {
