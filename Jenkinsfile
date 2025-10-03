@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs "node16"
+    }
+
     environment {
         FIREBASE_TOKEN = credentials('firebase-token')
     }
@@ -32,7 +36,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         success {
             echo '✅ Build and Deployment Successful!'
