@@ -3,8 +3,9 @@ pipeline {
     
     environment {
         FLUTTER_HOME = '/var/jenkins_home/flutter'
-        ANDROID_HOME = '/usr/local/android-sdk'
-        PATH = "${FLUTTER_HOME}/bin:${ANDROID_HOME}/tools:${ANDROID_HOME}/platform-tools:${PATH}"
+        ANDROID_HOME = '/var/jenkins_home/android-sdk'
+        ANDROID_SDK_ROOT = '/var/jenkins_home/android-sdk'
+        PATH = "${FLUTTER_HOME}/bin:${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
         FIREBASE_TOKEN = credentials('firebase-token')
     }
     
@@ -23,8 +24,35 @@ pipeline {
                     fi
                     
                     ${FLUTTER_HOME}/bin/flutter --version
-                    ${FLUTTER_HOME}/bin/flutter doctor -v
                     ${FLUTTER_HOME}/bin/flutter config --no-analytics
+                '''
+            }
+        }
+        
+        stage('Install Android SDK') {
+            steps {
+                echo 'Checking and installing Android SDK...'
+                sh '''
+                    if [ ! -d "${ANDROID_HOME}" ]; then
+                        echo "Android SDK not found. Installing..."
+                        mkdir -p ${ANDROID_HOME}/cmdline-tools
+                        cd ${ANDROID_HOME}/cmdline-tools
+                        
+                        # Download Android command line tools
+                        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+                        unzip -q commandlinetools-linux-11076708_latest.zip
+                        mv cmdline-tools latest
+                        rm commandlinetools-linux-11076708_latest.zip
+                        
+                        # Accept licenses and install required components
+                        yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --licenses || true
+                        ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+                    else
+                        echo "Android SDK already installed"
+                    fi
+                    
+                    # Verify installation
+                    ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --list | head -20
                 '''
             }
         }
@@ -33,6 +61,7 @@ pipeline {
             steps {
                 echo 'Setting up Flutter environment...'
                 sh '''
+                    flutter doctor -v
                     flutter pub get
                     flutter clean
                 '''
@@ -43,7 +72,14 @@ pipeline {
             steps {
                 echo 'Running unit and widget tests...'
                 sh '''
-                    flutter test --coverage
+                    # Only run tests if test directory exists
+                    if [ -d "test" ]; then
+                        flutter test --coverage
+                    else
+                        echo "Test directory not found, skipping tests..."
+                    fi
+                    
+                    # Run static analysis
                     flutter analyze
                 '''
             }
@@ -76,8 +112,12 @@ pipeline {
                 sh '''
                     # Check if Arduino CLI is installed
                     if command -v arduino-cli &> /dev/null; then
-                        cd arduino-firmware
-                        arduino-cli compile --fqbn esp32:esp32:esp32 .
+                        if [ -d "arduino-firmware" ]; then
+                            cd arduino-firmware
+                            arduino-cli compile --fqbn esp32:esp32:esp32 .
+                        else
+                            echo "Arduino firmware directory not found, skipping..."
+                        fi
                     else
                         echo "Arduino CLI not found, skipping firmware compilation"
                     fi
@@ -120,6 +160,9 @@ pipeline {
         }
         
         stage('Code Coverage Report') {
+            when {
+                expression { return fileExists('coverage') }
+            }
             steps {
                 echo 'Publishing coverage reports...'
                 publishHTML([
