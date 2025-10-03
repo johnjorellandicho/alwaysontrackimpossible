@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'cirrusci/flutter:3.24.3'   // Flutter image with SDK pre-installed
+            args '-u root:root'              // so it has permissions to install deps
+        }
+    }
 
     environment {
         FIREBASE_TOKEN = credentials('firebase-token')
@@ -30,15 +35,6 @@ pipeline {
             steps {
                 sh "npx firebase deploy --token $FIREBASE_TOKEN --non-interactive"
             }
-        }
-    }
-
-    post {
-        success {
-            echo "Flutter Build and Deployment Successful!"
-        }
-        failure {
-            echo "Build or Deployment Failed!"
         }
     }
 }
