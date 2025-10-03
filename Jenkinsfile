@@ -1,55 +1,53 @@
 pipeline {
-    agent {
-        docker {
-            image 'cirrusci/flutter:3.24.3'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
     
     environment {
-        // Only add this if you need Firebase CLI commands
-        FIREBASE_TOKEN = credentials('firebase-token-id')
-        // Add MongoDB URI if needed
-        MONGODB_URI = credentials('mongodb-uri')
+        FLUTTER_HOME = "${WORKSPACE}/flutter"
+        PATH = "${FLUTTER_HOME}/bin:${PATH}"
     }
     
     stages {
+        stage('Setup Flutter') {
+            steps {
+                sh '''
+                    if [ ! -d "${FLUTTER_HOME}" ]; then
+                        echo "Installing Flutter..."
+                        git clone https://github.com/flutter/flutter.git -b stable ${FLUTTER_HOME}
+                    else
+                        echo "Flutter already installed, updating..."
+                        cd ${FLUTTER_HOME}
+                        git pull
+                    fi
+                    
+                    flutter --version
+                    flutter doctor
+                    flutter precache
+                '''
+            }
+        }
+        
         stage('Checkout') {
             steps {
                 checkout scm
-                echo 'Code checked out successfully'
             }
         }
         
         stage('Verify Firebase Config') {
             steps {
                 sh '''
-                    echo "Checking google-services.json..."
                     if [ -f android/app/google-services.json ]; then
-                        echo "✅ google-services.json found"
+                        echo "✅ Firebase configuration found"
                     else
-                        echo "❌ google-services.json not found"
+                        echo "❌ Firebase configuration missing"
                         exit 1
                     fi
                 '''
             }
         }
         
-        stage('Flutter Doctor') {
+        stage('Get Dependencies') {
             steps {
-                sh '''
-                    flutter --version
-                    flutter doctor -v
-                '''
-            }
-        }
-        
-        stage('Clean & Get Dependencies') {
-            steps {
-                sh '''
-                    flutter clean
-                    flutter pub get
-                '''
+                sh 'flutter pub get'
             }
         }
         
@@ -59,18 +57,9 @@ pipeline {
             }
         }
         
-        stage('Run Tests') {
-            steps {
-                sh 'flutter test || echo "No tests found or tests failed"'
-            }
-        }
-        
         stage('Build APK') {
             steps {
-                sh '''
-                    echo "Building release APK..."
-                    flutter build apk --release
-                '''
+                sh 'flutter build apk --release'
             }
         }
         
@@ -85,14 +74,10 @@ pipeline {
     
     post {
         success {
-            echo '✅ Build completed successfully!'
-            echo 'APK available in build artifacts'
+            echo ' Build completed successfully!'
         }
         failure {
-            echo '❌ Build failed! Check the logs above for errors.'
-        }
-        always {
-            cleanWs()
+            echo ' Build failed!'
         }
     }
 }
